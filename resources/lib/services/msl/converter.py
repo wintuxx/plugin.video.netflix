@@ -156,11 +156,11 @@ def _convert_audio_track(audio_track, period, init_length, default):
         impaired=impaired,
         original=original,
         default=default)
-    for downloadable in audio_track['streams']:
-        _convert_audio_downloadable(
-            downloadable, adaptation_set, init_length,
-            audio_track.get('channelsCount'))
-
+    
+    for downloadable in audio_track['streams']: 
+        _convert_audio_downloadable( 
+            downloadable, adaptation_set, init_length, 
+            audio_track.get('channels'))
 
 def _convert_audio_downloadable(downloadable, adaptation_set, init_length,
                                 channels_count):
