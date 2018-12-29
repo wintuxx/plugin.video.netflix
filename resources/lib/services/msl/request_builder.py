@@ -72,8 +72,8 @@ class MSLRequestBuilder(object):
             'handshake': is_handshake,
             'nonreplayable': False,
             'capabilities': {
-                'languages': ['en-US'],
-                'compressionalgos': [compression] if compression else []
+                'languages': ['en-US']
+##                ,'compressionalgos': [compression] if compression else []
             },
             'recipient': 'Netflix',
             'renewable': True,
@@ -91,15 +91,16 @@ class MSLRequestBuilder(object):
 
     @common.time_execution(immediate=True)
     def _encrypted_chunk(self, data, esn):
-        # Serialize the given Data
-        serialized_data = ''.join((
-            '[{},{"headers":{},"path":"/cbp/cadmium-13","payload":{"data":"',
-            json.dumps(data).replace('"', '\\"'),
-            '"},"query":""}]\n'))
+##        # Serialize the given Data
+##        serialized_data = ''.join((
+##            '[{},{"headers":{},"path":"/cbp/cadmium-13","payload":{"data":"',
+##            json.dumps(data).replace('"', '\\"'),
+##            '"},"query":""}]\n'))
         payload = {
             'messageid': self.current_message_id,
-            'data': common.compress_data(serialized_data),
-            'compressionalgo': 'GZIP',
+            'data': base64.standard_b64encode(json.dumps(data)),
+            ##'data': common.compress_data(serialized_data),
+            ##'compressionalgo': 'GZIP',
             'sequencenumber': 1,
             'endofmsg': True
         }

@@ -29,10 +29,22 @@ def _profile_strings(base, tails):
 
 PROFILES = {
     'base': [
+        #Video
+        'playready-h264mpl30-dash',
+        'playready-h264mpl31-dash',
+        'playready-h264hpl30-dash',
+        'playready-h264hpl31-dash',
         # Audio
         'heaac-2-dash',
         # Unkown
-        'BIF240', 'BIF320'],
+        'BIF240',
+        'BIF320',
+        #Subs
+        'webvtt-lssdh-ios8',
+        #VP9
+        'vp9-profile0-L30-dash-cenc',
+        'vp9-profile0-L31-dash-cenc'
+        ],
     'dolbysound': ['ddplus-2.0-dash', 'ddplus-5.1-dash', 'ddplus-5.1hq-dash',
                    'ddplus-atmos-dash'],
     'h264': ['playready-h264mpl30-dash', 'playready-h264mpl31-dash',

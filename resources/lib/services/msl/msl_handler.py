@@ -13,6 +13,7 @@ import time
 import base64
 from functools import wraps
 import requests
+import xbmcaddon
 
 from resources.lib.globals import g
 import resources.lib.common as common
@@ -23,10 +24,11 @@ from .profiles import enabled_profiles
 from .converter import convert_to_dash
 from .exceptions import MSLError
 
-CHROME_BASE_URL = 'http://www.netflix.com/api/msl/NFCDCH-LX/cadmium/'
+CHROME_BASE_URL = 'https://www.netflix.com/nq/msl_v1/cadmium/'
 ENDPOINTS = {
-    'manifest': CHROME_BASE_URL + 'manifest',
-    'license': CHROME_BASE_URL + 'license'
+    'manifest': CHROME_BASE_URL + 'pbo_manifests/%5E1.0.0/router',
+    'license': CHROME_BASE_URL + 'pbo_licenses/%5E1.0.0/router'
+    #'license': 'http://www.netflix.com/api/msl/NFCDCH-LX/cadmium/license'	
 }
 
 
@@ -51,6 +53,7 @@ class MSLHandler(object):
     requests"""
     last_drm_context = ''
     last_playback_context = ''
+    last_license_url = ''
     session = requests.session()
 
     def __init__(self):
@@ -132,6 +135,7 @@ class MSLHandler(object):
         import pprint
         common.debug('Requested profiles:\n{}'
                      .format(pprint.pformat(profiles, indent=2)))
+        '''
         manifest_request_data = {
             'method': 'manifest',
             'lookupType': 'PREPARE',
@@ -153,11 +157,54 @@ class MSLHandler(object):
             'clientVersion': '4.0004.899.011',
             'uiVersion': 'akira'
         }
+        '''
+        ia_addon = xbmcaddon.Addon('inputstream.adaptive')
+        hdcp = ia_addon is not None and ia_addon.getSetting('HDCPOVERRIDE') == 'true'
+
+##        esn = self.nx_common.get_esn()
+        id = int(time.time() * 10000)
+        manifest_request_data = {
+            'version': 2,
+            'url': '/manifest',
+            'id': id,
+            'esn': esn,
+##            'languages': self.locale_id,
+            'languages' : ['en-US'],
+            'uiVersion': 'shakti-v25d2fa21',
+            'clientVersion': '6.0011.474.011',
+            'params': {
+                'type': 'standard',
+                'viewableId': [viewable_id],
+                'profiles': profiles,                
+                'flavor': 'PRE_FETCH',
+                'drmType': 'widevine',
+                'drmVersion': 25,
+                'usePsshBox': True,
+                'isBranching': False,
+                'useHttpsStreams': False,
+                'imageSubtitleHeight': 1080,
+                'uiVersion': 'shakti-vb45817f4',
+                'clientVersion': '6.0011.511.011',
+                'supportsPreReleasePin': True,
+                'supportsWatermark': True,
+                'showAllSubDubTracks': False,
+                'titleSpecificData': {},
+                'videoOutputInfo': [{
+                    'type': 'DigitalVideoOutputDescriptor',
+                    'outputType': 'unknown',
+                    'supportedHdcpVersions': [],
+                    'isHdcpEngaged': False
+                }],
+                'preferAssistiveAudio': False,
+                'isNonMember': False
+            }
+        }
+        #common.save_file('manifest_request_data.json', str(manifest_request_data))
         manifest = self._chunked_request(ENDPOINTS['manifest'],
                                          manifest_request_data, esn)
         common.save_file('manifest.json', json.dumps(manifest))
-        return manifest['result']['viewables'][0]
-
+##        return manifest['result']['viewables'][0]
+        return manifest['result']
     @display_error_info
     @common.time_execution(immediate=True)
     def get_license(self, challenge, sid):
@@ -168,27 +215,50 @@ class MSLHandler(object):
         :return: Base64 representation of the licensekey or False unsuccessfull
         """
         common.debug('Requesting license')
+##        license_request_data = {
+##            'method': 'license',
+##            'licenseType': 'STANDARD',
+##            'clientVersion': '4.0004.899.011',
+##            'uiVersion': 'akira',
+##            'languages': ['de-DE'],
+##            'playbackContextId': self.last_playback_context,
+##            'drmContextIds': [self.last_drm_context],
+##            'challenges': [{
+##                'dataBase64': challenge,
+##                'sessionId': sid
+##            }],
+##            'clientTime': int(time.time()),
+##            'xid': int((int(time.time()) + 0.1612) * 1000)
+##        }
+        id = int(time.time() * 10000)
+        ##challange_hd = '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'
         license_request_data = {
-            'method': 'license',
-            'licenseType': 'STANDARD',
-            'clientVersion': '4.0004.899.011',
-            'uiVersion': 'akira',
-            'languages': ['de-DE'],
-            'playbackContextId': self.last_playback_context,
-            'drmContextIds': [self.last_drm_context],
-            'challenges': [{
-                'dataBase64': challenge,
-                'sessionId': sid
+            'version': 2,
+            'url': self.last_license_url,
+            'id': id,
+            'esn': g.get_esn(),
+            'languages': ['en-US'],
+            'uiVersion': 'shakti-v25d2fa21',
+            'clientVersion': '6.0011.511.011',
+            'params': [{
+                'sessionId': sid,
+                'clientTime': int(id / 10000),
+                'challengeBase64': challenge,
+                'xid': str(id + 1610)
             }],
-            'clientTime': int(time.time()),
-            'xid': int((int(time.time()) + 0.1612) * 1000)
+            'echo': 'sessionId'
         }
+        #common.save_file('license_request_data.json', str(license_request_data))        
+
         response = self._chunked_request(ENDPOINTS['license'],
                                          license_request_data, g.get_esn())
-        return response['result']['licenses'][0]['data']
+#        return response['result']['licenses'][0]['data']
+        #common.save_file('lic_response.json', str(response['result'][0]['licenseResponseBase64']))        
+        return response['result'][0]['licenseResponseBase64']
 
     @common.time_execution(immediate=True)
     def __tranform_to_dash(self, manifest):
+        self.last_license_url = manifest['links']['license']['href']
         self.last_playback_context = manifest['playbackContextId']
         self.last_drm_context = manifest['drmContextId']
         return convert_to_dash(manifest)
@@ -291,11 +361,10 @@ def _decrypt_chunks(chunks, crypto):
         else:
             data = base64.standard_b64decode(data)
         decrypted_payload += data
-
-    decrypted_payload = json.loads(decrypted_payload)[1]['payload']['data']
-    decrypted_payload = base64.standard_b64decode(decrypted_payload)
-    return json.loads(decrypted_payload)
-
+    decrypted_payload = json.loads(decrypted_payload)
+##    decrypted_payload = base64.standard_b64decode(decrypted_payload)
+##    return json.loads(decrypted_payload)
+    return decrypted_payload
 
 def has_1080p(manifest):
     """Return True if any of the video tracks in manifest have a 1080p profile

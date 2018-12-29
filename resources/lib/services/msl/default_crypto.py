@@ -1,3 +1,4 @@
+
 # -*- coding: utf-8 -*-
 """Crypto handler for non-Android platforms"""
 from __future__ import unicode_literals
@@ -58,13 +59,14 @@ class DefaultMSLCrypto(MSLBaseCrypto):
         cipher = AES.new(self.encryption_key, AES.MODE_CBC, init_vector)
         encryption_envelope = {
             'ciphertext': '',
-            'keyid': '_'.join((esn, str(self.sequence_number))),
+            #'keyid': '_'.join((esn, str(self.sequence_number))),
+            'keyid': esn + '_' + str(self.sequence_number),
             'sha256': 'AA==',
             'iv': base64.standard_b64encode(init_vector)
         }
         encryption_envelope['ciphertext'] = base64.standard_b64encode(
-            cipher.encrypt(Padding.pad(plaintext.encode('utf-8'), 16)))
-
+            cipher.encrypt(Padding.pad(plaintext, 16)))
+#        return encryption_envelope
         return json.dumps(encryption_envelope)
 
     def decrypt(self, init_vector, ciphertext):
@@ -76,7 +78,8 @@ class DefaultMSLCrypto(MSLBaseCrypto):
         """Sign a message"""
         return base64.standard_b64encode(
             HMAC.new(self.sign_key, message, SHA256).digest())
-
+#        return HMAC.new(self.sign_key, message, SHA256).digest()
+    
     def _init_keys(self, key_response_data):
         cipher = PKCS1_OAEP.new(self.rsa_key)
         encrypted_encryption_key = base64.standard_b64decode(
