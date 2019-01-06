@@ -402,7 +402,7 @@ msgstr "Tutte le Serie TV"
 
 msgctxt "#30096"
 msgid "All Movies"
-msgstr "Tutte le Serie TV"
+msgstr "Tutti i Film"
 
 msgctxt "#30097"
 msgid "Main Menu"
