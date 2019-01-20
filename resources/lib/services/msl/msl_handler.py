@@ -59,15 +59,27 @@ class MSLHandler(object):
     def __init__(self):
         # pylint: disable=broad-except
         try:
+            self.request_builder = MSLRequestBuilder()
             msl_data = json.loads(common.load_file('msl_data.json'))
-            self.request_builder = MSLRequestBuilder(msl_data)
-            common.debug('Loaded MSL data from disk')
+            if self.request_builder.crypto.check_mastertoken_validity(
+                msl_data['tokens']['mastertoken']):
+                self.request_builder = MSLRequestBuilder(msl_data)
+                common.debug('Loaded MSL data from disk')
+            else:
+                #Expired mastertoken
+                self.perform_key_handshake()
+                #Load renewed msl_data
+                self.request_builder = MSLRequestBuilder(json.loads(
+                    common.load_file('msl_data.json')))
+                common.debug('Renewed MSL data')
         except Exception:
             import traceback
             common.debug(traceback.format_exc())
             common.debug('Stored MSL data expired or not available')
             self.request_builder = MSLRequestBuilder()
             self.perform_key_handshake()
+            self.request_builder = MSLRequestBuilder(json.loads(
+                common.load_file('msl_data.json')))
         common.register_slot(
             signal=common.Signals.ESN_CHANGED,
             callback=self.perform_key_handshake)

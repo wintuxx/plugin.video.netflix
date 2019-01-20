@@ -50,6 +50,10 @@ class AndroidMSLCrypto(MSLBaseCrypto):
     def __del__(self):
         self.crypto_session = None
 
+    def check_mastertoken_validity(self, mastertoken):
+        """Check the mastertoken validity"""
+        return True
+
     def key_request_data(self):
         """Return a key request dict"""
         # No key update supported -> remove existing keys

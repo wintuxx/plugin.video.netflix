@@ -19,6 +19,17 @@ class MSLBaseCrypto(object):
         if msl_data:
             self._set_mastertoken(msl_data['tokens']['mastertoken'])
 
+    def check_mastertoken_validity(self, mastertoken):
+        """Check the mastertoken validity"""
+        tokendata = json.loads(
+            base64.standard_b64decode(mastertoken['tokendata']))
+        remaining_ttl = (int(tokendata['expiration']) - time.time())
+        if remaining_ttl / 60 / 60 >= 10:
+            return True
+        else:
+            common.error('Mastertoken has expired')
+            return False
+
     def parse_key_response(self, headerdata, save_to_disk):
         """Parse a key response and update crypto keys"""
         self._set_mastertoken(headerdata['keyresponsedata']['mastertoken'])
@@ -28,13 +39,13 @@ class MSLBaseCrypto(object):
 
     def _set_mastertoken(self, mastertoken):
         """Set the mastertoken and check it for validity"""
-        tokendata = json.loads(
-            base64.standard_b64decode(mastertoken['tokendata']))
-        remaining_ttl = (int(tokendata['expiration']) - time.time())
-        if remaining_ttl / 60 / 60 >= 10:
+        if self.check_mastertoken_validity(mastertoken):
+            tokendata = json.loads(
+                base64.standard_b64decode(mastertoken['tokendata']))
             self.mastertoken = mastertoken
             self.sequence_number = tokendata.get('sequencenumber', 0)
         else:
+            # Expired mastertoken
             common.error('Mastertoken has expired')
             raise MastertokenExpired
 
