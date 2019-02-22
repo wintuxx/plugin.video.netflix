@@ -26,16 +26,16 @@ def convert_to_dash(manifest):
             video_track, period, init_length, protection)
 
     default_audio_language_index = _get_default_audio_language(manifest)
-
     for index, audio_track in enumerate(manifest['audio_tracks']):
-        # Assume that first listed track is the default
         _convert_audio_track(audio_track, period, init_length,
                              default=(index == default_audio_language_index))
 
-    for text_track in manifest['timedtexttracks']:
+    default_subtitle_language_index = _get_default_subtitle_language(manifest)
+    for index, text_track in enumerate(manifest['timedtexttracks']):
         if text_track['isNoneTrack']:
             continue
-        _convert_text_track(text_track, period)
+        _convert_text_track(text_track, period,
+                            default=(index == default_subtitle_language_index))
 
     xml = ET.tostring(root, encoding='utf-8', method='xml')
     common.save_file('manifest.mpd', xml)
@@ -103,20 +103,11 @@ def _convert_video_downloadable(downloadable, adaptation_set,
         width=str(downloadable['res_w']),
         height=str(downloadable['res_h']),
         bandwidth=str(downloadable['bitrate'] * 1024),
-        hdcp=_determine_hdcp_version(downloadable.get('hdcpVersions', 'none')),
         nflxContentProfile=str(downloadable['content_profile']),
         codecs=_determine_video_codec(downloadable['content_profile']),
         mimeType='video/mp4')
     _add_base_url(representation, downloadable['urls'][0]['url'])
     _add_segment_base(representation, init_length)
-
-
-def _determine_hdcp_version(hdcp_versions):
-    hdcp_version = '0.0'
-    for hdcp in hdcp_versions:
-        if hdcp != 'none':
-            hdcp_version = hdcp if hdcp != 'any' else '1.0'
-    return hdcp_version
 
 
 def _determine_video_codec(content_profile):
@@ -128,6 +119,7 @@ def _determine_video_codec(content_profile):
 
 
 def _convert_audio_track(audio_track, period, init_length, default):
+    channels_count = {'1.0': '1', '2.0': '2', '5.1': '6', '7.1': '8'}
     impaired = 'true' if audio_track['trackType'] == 'ASSISTIVE' else 'false'
     original = 'true' if audio_track['isNative'] else 'false'
     default = 'true' if default else 'false'
@@ -144,7 +136,7 @@ def _convert_audio_track(audio_track, period, init_length, default):
     for downloadable in audio_track['streams']:
         _convert_audio_downloadable(
             downloadable, adaptation_set, init_length,
-            audio_track.get('channels'))
+            channels_count[downloadable['channels']])
 
 
 def _convert_audio_downloadable(downloadable, adaptation_set, init_length,
@@ -159,12 +151,12 @@ def _convert_audio_downloadable(downloadable, adaptation_set, init_length,
         parent=representation,
         tag='AudioChannelConfiguration',
         schemeIdUri='urn:mpeg:dash:23003:3:audio_channel_configuration:2011',
-        value=str(channels_count))
+        value=channels_count)
     _add_base_url(representation, downloadable['urls'][0]['url'])
     _add_segment_base(representation, init_length)
 
 
-def _convert_text_track(text_track, period):
+def _convert_text_track(text_track, period, default):
     if text_track.get('ttDownloadables'):
         # Only one subtitle representation per adaptationset
         downloadable = text_track['ttDownloadables']
@@ -180,11 +172,16 @@ def _convert_text_track(text_track, period):
             codecs=('stpp', 'wvtt')[is_ios8],
             contentType='text',
             mimeType=('application/ttml+xml', 'text/vtt')[is_ios8])
-        ET.SubElement(
+        role = ET.SubElement(
             parent=adaptation_set,
             tag='Role',
-            schemeIdUri='urn:mpeg:dash:role:2011',
-            value = 'forced' if text_track.get('isForcedNarrative') else 'main')
+            schemeIdUri='urn:mpeg:dash:role:2011')
+        if text_track.get('isForcedNarrative'):
+            role.set("value", "forced")
+        else:
+            if default:
+                role.set("value", "main")
+
         representation = ET.SubElement(
             parent=adaptation_set,
             tag='Representation',
@@ -239,3 +236,21 @@ def _get_default_audio_language(manifest):
             return index
             break
     return 0
+
+def _get_default_subtitle_language(manifest):
+    subtitle_language = common.json_rpc('Settings.GetSettingValue', {'setting': 'locale.subtitlelanguage'})
+    if subtitle_language['value'] == 'forced_only':
+        # Leave the selection of forced subtitles to kodi
+        return -1
+    else:
+        subtitle_language = xbmc.convertLanguage(subtitle_language['value'], xbmc.ISO_639_1)
+        subtitle_language = subtitle_language if subtitle_language else xbmc.getLanguage(xbmc.ISO_639_1, False)
+        subtitle_language = subtitle_language if subtitle_language else 'en'
+
+        for index, text_track in enumerate(manifest['timedtexttracks']):
+            if text_track['isNoneTrack']:
+                continue
+            if not text_track.get('isForcedNarrative') and text_track['language'] == subtitle_language:
+                return index
+                break
+        return -1
